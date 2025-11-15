@@ -25,12 +25,10 @@ class MiniFileSystem:
     def _carregar_metadados(self):
         """Carrega FAT e Diretório dos clusters reservados (persistência)."""
         try:
-            # Carrega a FAT (Cluster 0)
             fat_bytes = self._driver.ler_cluster(0)
             fat_data = json.loads(fat_bytes.decode('utf-8').strip('\x00'))
             self._fat = fat_data['fat']
             
-            # Carrega o Diretório (Cluster 1)
             dir_bytes = self._driver.ler_cluster(1)
             dir_dados = json.loads(dir_bytes.decode('utf-8').strip('\x00'))
             self._directory = dir_dados['directory']
@@ -42,13 +40,10 @@ class MiniFileSystem:
 
     def _salvar_metadados(self):
         """Salva FAT e Diretório nos clusters reservados (persistência)."""
-        
-        # Salva a FAT (Cluster 0)
         fat_data = {'fat': self._fat}
         fat_bytes = json.dumps(fat_data).encode('utf-8')
         self._driver.escrever_cluster(0, fat_bytes)
         
-        # Salva o Diretório (Cluster 1)
         dir_dados = {'directory': self._directory}
         dir_bytes = json.dumps(dir_dados).encode('utf-8')
         self._driver.escrever_cluster(1, dir_bytes)
@@ -57,10 +52,9 @@ class MiniFileSystem:
         try:
             return self._fat.index(FAT_LIVRE, FAT_INICIAR_CLUSTER)
         except ValueError:
-            return None # Disco cheio
+            return None
             
     def _liberar_cadeia(self, iniciar_cluster):
-        """Libera todos os clusters de uma cadeia na FAT."""
         atual = iniciar_cluster
         while atual != FAT_FIM_DE_ARQUIVO and atual is not None:
             proximo_cluster = self._fat[atual]
@@ -72,59 +66,77 @@ class MiniFileSystem:
         if nome_arquivo not in self._directory:
             print(f"Erro: Arquivo '{nome_arquivo}' não encontrado.")
             return False
+        
         self._directory[nome_arquivo][DIR_READONLY_INDICE] = is_readonly
         self._salvar_metadados()
-        print(f"Atributo '{'SOMENTE LEITURA' if is_readonly else 'EDITÁVEL'}' definido para '{nome_arquivo}'.")
+
+        estado = "SOMENTE LEITURA" if is_readonly else "EDITÁVEL"
+        print(f"Atributo '{estado}' definido para '{nome_arquivo}'.")
         return True
     
+
     def escrever_arquivo(self, nome_arquivo, conteudo, is_readonly=False):
-        """Escreve/Sobrescreve um arquivo."""
+        """Escreve ou sobrescreve arquivo (Pessoa 3)."""
+        
         conteudo_bytes = conteudo.encode('utf-8')
         conteudo_tamanho = len(conteudo_bytes)
 
-        # 1. Checa o atributo 'somente leitura'
+        # Checa atributo somente leitura
         if nome_arquivo in self._directory and self._directory[nome_arquivo][DIR_READONLY_INDICE] is True:
-            print(f"Erro: Arquivo '{nome_arquivo}' está como **SOMENTE LEITURA** e não pode ser sobrescrito.")
+            print(f"Erro: Arquivo '{nome_arquivo}' está como SOMENTE LEITURA e não pode ser sobrescrito.")
             return False
         
-        # 2. Libera clusters antigos (se for sobrescrita)
+        # Se existe → libera cadeia antiga
         if nome_arquivo in self._directory:
             print(f"Sobrescrevendo '{nome_arquivo}'. Liberando clusters antigos.")
             self._liberar_cadeia(self._directory[nome_arquivo][DIR_INICIAR_INDICE_CLUSTER])
-            
-        # 3. Aloca e escreve (Lógica FAT)
+        
+        # Calcula clusters necessários
         num_clusters_necessario = (conteudo_tamanho + TAMANHO_CLUSTER - 1) // TAMANHO_CLUSTER
         
         iniciar_cluster = None
         atual_cluster = None
-        
+
+        # Alocação cluster por cluster
         for i in range(num_clusters_necessario):
+
             cluster_livre = self._encontrar_cluster_livre()
-            # ... (Lógica de alocação e gravação do cluster, conforme o código anterior)
+
             if cluster_livre is None:
-                print("Erro: Disco cheio. Não é possível escrever o arquivo completo.")
-                if iniciar_cluster: self._liberar_cadeia(iniciar_cluster)
+                print("Erro: Disco cheio. Não é possível concluir a escrita.")
+                if iniciar_cluster:
+                    self._liberar_cadeia(iniciar_cluster)
                 return False
-                
-            if iniciar_cluster is None: iniciar_cluster = cluster_livre
-            if atual_cluster is not None: self._fat[atual_cluster] = cluster_livre
-            
+
+            # ligar encadeamento FAT
+            if iniciar_cluster is None:
+                iniciar_cluster = cluster_livre
+            if atual_cluster is not None:
+                self._fat[atual_cluster] = cluster_livre
+
             atual_cluster = cluster_livre
-            
-            iniciar_byte = i * TAMANHO_CLUSTER
-            fim_byte = iniciar_byte + TAMANHO_CLUSTER
-            chunk = conteudo_bytes[iniciar_byte:fim_byte]
-            
+
+            # gravar o bloco no disco
+            inicio = i * TAMANHO_CLUSTER
+            fim = inicio + TAMANHO_CLUSTER
+            chunk = conteudo_bytes[inicio:fim]
+
             self._driver.escrever_cluster(atual_cluster, chunk)
-            
-        # 4. Finaliza a cadeia FAT e atualiza o Diretório Raiz
+
+        # Finaliza cadeia FAT
         if atual_cluster is not None:
             self._fat[atual_cluster] = FAT_FIM_DE_ARQUIVO
-            
-            # Atualiza/Cria a entrada do diretório (Tamanho, Cluster Inicial, Somente Leitura)
-            self._directory[nome_arquivo] = [conteudo_tamanho, iniciar_cluster, is_readonly]
+
+            # Atualiza diretório
+            self._directory[nome_arquivo] = [
+                conteudo_tamanho,
+                iniciar_cluster,
+                is_readonly
+            ]
+
             self._salvar_metadados()
-            print(f"Sucesso: Arquivo '{nome_arquivo}' ({conteudo_tamanho} bytes) escrito no cluster {iniciar_cluster}.")
+
+            print(f"Arquivo '{nome_arquivo}' escrito com sucesso no cluster {iniciar_cluster}.")
             return True
-        
+
         return False
