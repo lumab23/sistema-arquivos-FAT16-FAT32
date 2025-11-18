@@ -2,41 +2,39 @@ import os
 
 TAMANHO_CLUSTER = 1024
 TOTAL_CLUSTERS = 100
-ARQUIVO_DISCO = "mini_fat_disk.bin"
+ARQUIVO_DISCO = "mini_fat_disco.bin"
 
 FAT_FIM_DE_ARQUIVO = -1
 FAT_LIVRE = 0
 FAT_RESERVADO = 1
 
 
-class DiskDriver:
-    """
-    O disk driver simula o acesso de baixo nível ao disco (arquivo bin.).
-    Vai ler e escrever o conteúdo dos clusters, calculando o offset.
-    """
+class DriverDisco:
 
     def __init__(self):
         self._disco = None
         self._inicializar_disco()
 
     def _inicializar_disco(self):
-        """
-        cria o arquivo de disco se não existir e abre para I/O bin
-        """
+        try:
+            tamanho_disco = TOTAL_CLUSTERS * TAMANHO_CLUSTER
+            if not os.path.exists(ARQUIVO_DISCO):
+                print(f"Criando novo disco virtual: {tamanho_disco} bytes")
+                with open(ARQUIVO_DISCO, "wb") as f:
+                    f.write(b"\x00" * tamanho_disco)
 
-        tamanho_disco = TOTAL_CLUSTERS * TAMANHO_CLUSTER
-        if not os.path.exists(ARQUIVO_DISCO):
-            print(f"Criando novo disco virtual: {tamanho_disco} bytes")
-            with open(ARQUIVO_DISCO, "wb") as f:
-                f.write(b"\x00" * tamanho_disco)
+            self._disco = open(ARQUIVO_DISCO, "r+b")
+            print(f"Disco virtual '{ARQUIVO_DISCO}' aberto com sucesso.")
 
-        self._disco = open(ARQUIVO_DISCO, "r+b")
-        print(f"Disco virtual '{ARQUIVO_DISCO}' aberto com sucesso.")
+        except IOError as e:
+            print(f"ERRO FATAL: Não foi possível abrir/criar o arquivo de disco: {e}")
+            self._disco = None
 
     def fechar(self):
         if self._disco:
             self._disco.close()
             print(f"Disco virtual '{ARQUIVO_DISCO}' fechado com sucesso.")
+            self._disco = None
 
     def ler_cluster(self, indice_cluster):
         if self._disco is None:

@@ -1,78 +1,67 @@
-# main.py
-
-from mini_filesystem import MiniFileSystem
 import os
-import random
+
+from sistema_arquivos import SistemaArquivos
 
 def criar_disco_e_preencher_fragmentado(fs):
-    """Cria arquivos de tamanhos variados para fragmentar o disco."""
     print("\n--- INICIANDO CRIAÇÃO DE ARQUIVOS FRAGMENTADOS ---")
-    
-    # 1. Escreve arquivo grande (ocupa vários clusters)
-    fs.write_file("arq_grande_A.txt", "A" * 3500) # 4 Clusters
 
-    # 2. Escreve arquivo pequeno (gap na alocação)
-    fs.write_file("arq_pequeno_1.tmp", "B" * 100) # 1 Cluster
+    fs.escrever_arquivo("arq_grande_A.txt", "A" * 3500)
 
-    # 3. Escreve arquivo médio
-    fs.write_file("arq_medio_C.doc", "C" * 2500) # 3 Clusters
+    fs.escrever_arquivo("arq_pequeno_1.tmp", "B" * 100)
 
-    # 4. Apaga o arquivo pequeno (cria fragmentação real - cluster 6 livre)
-    fs.delete_file("arq_pequeno_1.tmp") 
-    
-    # 5. Escreve um arquivo que preenche o buraco (cluster 6) e continua, fragmentando
-    fs.write_file("arq_frag.pdf", "D" * 3000) # Ocupa cluster 6, 7, 8
-    
+    fs.escrever_arquivo("arq_medio_C.doc", "C" * 2500)
+
+    fs.apagar_arquivo("arq_pequeno_1.tmp")
+
+    fs.escrever_arquivo("arq_frag.pdf", "D" * 3000)
+
     print("\nEstado do Disco após Fragmentação:")
-    fs.list_files()
+    fs.listar_arquivos()
+
 
 if __name__ == "__main__":
-    
-    # Limpa o disco
-    disk_file = "mini_fat_disk.bin"
-    if os.path.exists(disk_file):
-        os.remove(disk_file)
-        print(f"Disco antigo '{disk_file}' removido.")
-        
-    # Inicializa o Sistema
-    fs = MiniFileSystem()
+    ARQUIVO_DISCO_CORRIGIDO = "mini_fat_disco.bin"
+    if os.path.exists(ARQUIVO_DISCO_CORRIGIDO):
+        os.remove(ARQUIVO_DISCO_CORRIGIDO)
+        print(f"Disco antigo '{ARQUIVO_DISCO_CORRIGIDO}' removido.")
+
+    fs = SistemaArquivos()
     print("=" * 50)
-    
-    # --- Demonstração de Fragmentação ---
+
     criar_disco_e_preencher_fragmentado(fs)
     print("Clusters de 'arq_frag.pdf' estão espalhados.")
-    print("A FAT está desorganizada (não sequencial).")
 
-    # --- Demonstração de Desfragmentação ---
-    fs.defrag_disk()
-    fs.list_files()
-    print("Verifique que os clusters iniciais agora são sequenciais (2, 6, 9...).")
-    
-    # --- Demonstração de Atributos (Somente Leitura) ---
+    fs.desfragmentar_disco()
+    fs.listar_arquivos()
+
     print("\n--- Teste de Atributo Somente Leitura ---")
-    
-    # 1. Define 'arq_grande_A.txt' como somente leitura
-    fs.set_readonly_attribute("arq_grande_A.txt", True)
-    fs.list_files()
 
-    # 2. Tenta Sobrescrever (Deve Falhar)
+    fs.definir_atributo_somente_leitura("arq_grande_A.txt", True)
+    fs.listar_arquivos()
+
     print("\nTentando sobrescrever arquivo R/O...")
-    fs.write_file("arq_grande_A.txt", "TENTATIVA DE SOBRESCRITA") 
-    
-    # 3. Tenta Apagar (Deve Falhar)
-    print("\nTentando apagar arquivo R/O...")
-    fs.delete_file("arq_grande_A.txt")
-    
-    # 4. Remove o atributo e tenta apagar (Deve ter Sucesso)
-    print("\nRemovendo R/O e apagando...")
-    fs.set_readonly_attribute("arq_grande_A.txt", False)
-    fs.delete_file("arq_grande_A.txt")
+    fs.escrever_arquivo("arq_grande_A.txt", "TENTATIVA DE SOBRESCRITA")
 
-    fs.list_files()
-    
-    # Garante que o disco virtual seja fechado
-    fs.close()
-    
+    print("\nTentando apagar arquivo R/O...")
+    fs.apagar_arquivo("arq_grande_A.txt")
+
+    print("\nRemovendo R/O e apagando...")
+    fs.definir_atributo_somente_leitura("arq_grande_A.txt", False)
+    fs.apagar_arquivo("arq_grande_A.txt")
+
+    fs.listar_arquivos()
+
+    print("\n--- Teste de Leitura ---")
+    fs.escrever_arquivo("teste_leitura.txt", "Testando a funcionalidade de leitura.")
+    conteudo = fs.ler_arquivo("teste_leitura.txt")
+    print(f"Conteúdo lido: {conteudo}")
+
+    print("\n--- Teste de Renomear ---")
+    fs.renomear_arquivo("teste_leitura.txt", "doc_final.txt")
+    fs.listar_arquivos()
+
+    fs.fechar()
+
     print("\n" + "=" * 50)
     print("**Implementação Completa e Aprimorada (FAT-like)**")
-    print("A desfragmentação e a checagem de atributos 'somente leitura' foram implementadas com sucesso.")
+    print("O sistema está pronto para apresentação.")
