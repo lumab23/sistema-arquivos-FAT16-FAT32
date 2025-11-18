@@ -1,67 +1,100 @@
 import os
-
 from sistema_arquivos import SistemaArquivos
 
-def criar_disco_e_preencher_fragmentado(fs):
-    print("\n--- INICIANDO CRIAÇÃO DE ARQUIVOS FRAGMENTADOS ---")
+def exibir_menu():
+    print("\n" + "="*40)
+    print("   SISTEMA DE FICHEIROS (Modo Interativo)")
+    print("="*40)
+    print("1. Listar ficheiros (dir/ls)")
+    print("2. Escrever ficheiro (write)")
+    print("3. Ler ficheiro (read)")
+    print("4. Apagar ficheiro (del)")
+    print("5. Renomear ficheiro (rename)")
+    print("6. Alterar permissões R/O (attrib)")
+    print("7. Desfragmentar disco (defrag)")
+    print("8. Sair")
+    print("-" * 40)
 
-    fs.escrever_arquivo("arq_grande_A.txt", "A" * 3500)
+def main():
+    # Inicializa o sistema de arquivos (carrega metadados se existirem)
+    fs = SistemaArquivos()
+    
+    while True:
+        exibir_menu()
+        opcao = input("Escolha uma opção (1-8): ").strip()
 
-    fs.escrever_arquivo("arq_pequeno_1.tmp", "B" * 100)
+        if opcao == "1":
+            # Chama o método existente para listar
+            fs.listar_arquivos()
 
-    fs.escrever_arquivo("arq_medio_C.doc", "C" * 2500)
+        elif opcao == "2":
+            print("\n--- Escrever Ficheiro ---")
+            nome = input("Nome do ficheiro (ex: notas.txt): ").strip()
+            if not nome:
+                print("Erro: O nome não pode estar vazio.")
+                continue
+            
+            conteudo = input("Conteúdo do ficheiro: ")
+            
+            # Opcional: definir se nasce como apenas leitura
+            # Por padrão, deixamos editável (False)
+            sucesso = fs.escrever_arquivo(nome, conteudo)
+            if not sucesso:
+                print("Falha ao escrever o ficheiro.")
 
-    fs.apagar_arquivo("arq_pequeno_1.tmp")
+        elif opcao == "3":
+            print("\n--- Ler Ficheiro ---")
+            nome = input("Nome do ficheiro a ler: ").strip()
+            conteudo = fs.ler_arquivo(nome)
+            
+            if conteudo is not None:
+                print(f"\n[INÍCIO DO FICHEIRO '{nome}']")
+                print(conteudo)
+                print(f"[FIM DO FICHEIRO '{nome}']")
 
-    fs.escrever_arquivo("arq_frag.pdf", "D" * 3000)
+        elif opcao == "4":
+            print("\n--- Apagar Ficheiro ---")
+            nome = input("Nome do ficheiro a apagar: ").strip()
+            fs.apagar_arquivo(nome)
 
-    print("\nEstado do Disco após Fragmentação:")
-    fs.listar_arquivos()
+        elif opcao == "5":
+            print("\n--- Renomear Ficheiro ---")
+            antigo = input("Nome atual: ").strip()
+            novo = input("Novo nome: ").strip()
+            fs.renomear_arquivo(antigo, novo)
 
+        elif opcao == "6":
+            print("\n--- Alterar Permissões (Somente Leitura) ---")
+            nome = input("Nome do ficheiro: ").strip()
+            escolha = input("Tornar somente leitura? (s/n): ").strip().lower()
+            
+            if escolha == 's':
+                fs.definir_atributo_somente_leitura(nome, True)
+            elif escolha == 'n':
+                fs.definir_atributo_somente_leitura(nome, False)
+            else:
+                print("Opção inválida. Nenhuma alteração feita.")
+
+        elif opcao == "7":
+            print("\n--- Desfragmentação ---")
+            confirmacao = input("Isso reorganizará os clusters. Continuar? (s/n): ").lower()
+            if confirmacao == 's':
+                fs.desfragmentar_disco()
+                fs.listar_arquivos()
+
+        elif opcao == "8":
+            print("\nA fechar o sistema...")
+            fs.fechar()
+            break
+        
+        else:
+            print("\nOpção inválida! Por favor, escolha um número de 1 a 8.")
 
 if __name__ == "__main__":
-    ARQUIVO_DISCO_CORRIGIDO = "mini_fat_disco.bin"
-    if os.path.exists(ARQUIVO_DISCO_CORRIGIDO):
-        os.remove(ARQUIVO_DISCO_CORRIGIDO)
-        print(f"Disco antigo '{ARQUIVO_DISCO_CORRIGIDO}' removido.")
+    # Verifica se o disco existe apenas para log visual, o SistemaArquivos trata o resto
+    if os.path.exists("mini_fat_disco.bin"):
+        print("Disco encontrado. A carregar sistema...")
+    else:
+        print("Disco não encontrado. Um novo será criado ao iniciar.")
 
-    fs = SistemaArquivos()
-    print("=" * 50)
-
-    criar_disco_e_preencher_fragmentado(fs)
-    print("Clusters de 'arq_frag.pdf' estão espalhados.")
-
-    fs.desfragmentar_disco()
-    fs.listar_arquivos()
-
-    print("\n--- Teste de Atributo Somente Leitura ---")
-
-    fs.definir_atributo_somente_leitura("arq_grande_A.txt", True)
-    fs.listar_arquivos()
-
-    print("\nTentando sobrescrever arquivo R/O...")
-    fs.escrever_arquivo("arq_grande_A.txt", "TENTATIVA DE SOBRESCRITA")
-
-    print("\nTentando apagar arquivo R/O...")
-    fs.apagar_arquivo("arq_grande_A.txt")
-
-    print("\nRemovendo R/O e apagando...")
-    fs.definir_atributo_somente_leitura("arq_grande_A.txt", False)
-    fs.apagar_arquivo("arq_grande_A.txt")
-
-    fs.listar_arquivos()
-
-    print("\n--- Teste de Leitura ---")
-    fs.escrever_arquivo("teste_leitura.txt", "Testando a funcionalidade de leitura.")
-    conteudo = fs.ler_arquivo("teste_leitura.txt")
-    print(f"Conteúdo lido: {conteudo}")
-
-    print("\n--- Teste de Renomear ---")
-    fs.renomear_arquivo("teste_leitura.txt", "doc_final.txt")
-    fs.listar_arquivos()
-
-    fs.fechar()
-
-    print("\n" + "=" * 50)
-    print("**Implementação Completa e Aprimorada (FAT-like)**")
-    print("O sistema está pronto para apresentação.")
+    main()
