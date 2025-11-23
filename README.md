@@ -28,7 +28,7 @@ Certifique-se de ter o Python 3 instalado.
 2.  Execute o comando:
 
 ```bash
-python3 main.py
+python main.py
 ```
 
 3.  Siga as instruções no menu interativo.
