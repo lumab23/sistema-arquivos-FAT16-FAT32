@@ -1,4 +1,3 @@
-import copy
 import json
 
 from driver_disco import (
@@ -240,59 +239,3 @@ class SistemaArquivos:
                 f"{nome:<20} | {entry[DIR_TAMANHO_INDICE]:<15} | {entry[DIR_CLUSTER_INICIAL_INDEX]:<15} | {attr}"
             )
         print("-" * 75)
-
-    def desfragmentar_disco(self):
-        print("\n--- INICIANDO DESFRAGMENTAÇÃO (Processo Lento) ---")
-
-        diretorio_para_iterar = copy.deepcopy(self._diretorio)
-        novo_diretorio = {}
-
-        self._fat = [FAT_RESERVADO, FAT_RESERVADO] + [FAT_LIVRE] * CLUSTERS_DADOS
-
-        proximo_cluster = CLUSTER_INICIAL_DADOS
-
-        for nome_arquivo, entry_antiga in diretorio_para_iterar.items():
-            tamanho, cluster_inicial_antigo, somente_leitura = entry_antiga
-
-            cadeia_antiga = []
-            atual_cluster = cluster_inicial_antigo
-            while atual_cluster != FAT_FIM_DE_ARQUIVO and atual_cluster is not None:
-                cadeia_antiga.append(atual_cluster)
-                atual_cluster = self._fat[atual_cluster]
-
-            cluster_inicial_novo = proximo_cluster
-            ultimo_novo_cluster = None
-
-            for cluster_antigo in cadeia_antiga:
-                dados_chunk = self._driver.ler_cluster(cluster_antigo)
-
-                if dados_chunk is None:
-                    print(
-                        f"Aviso: Cluster {cluster_antigo} não pôde ser lido durante a desfragmentação. Dados perdidos."
-                    )
-                    break
-
-                self._driver.escrever_cluster(proximo_cluster, dados_chunk)
-
-                if ultimo_novo_cluster is not None:
-                    self._fat[ultimo_novo_cluster] = proximo_cluster
-
-                ultimo_novo_cluster = proximo_cluster
-                proximo_cluster += 1
-
-            if ultimo_novo_cluster is not None:
-                self._fat[ultimo_novo_cluster] = FAT_FIM_DE_ARQUIVO
-
-            novo_diretorio[nome_arquivo] = [
-                tamanho,
-                cluster_inicial_novo,
-                somente_leitura,
-            ]
-            print(
-                f"Arquivo '{nome_arquivo}' movido de {cluster_inicial_antigo} para {cluster_inicial_novo}."
-            )
-
-        self._diretorio = novo_diretorio
-        self._salvar_metadados()
-
-        print("--- DESFRAGMENTAÇÃO CONCLUÍDA. Clusters agora são sequenciais. ---")
