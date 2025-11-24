@@ -12,7 +12,8 @@ def exibir_menu():
     print("5. Renomear arquivo (rename)")
     print("6. Alterar permissões R/O (attrib)")
     print("7. Criar Diretório (mkdir)")
-    print("8. Sair")
+    print("8. Mover arquivo para pasta (move)") 
+    print("9. Sair")
     print("-" * 40)
 
 def main():
@@ -20,33 +21,30 @@ def main():
 
     while True:
         exibir_menu()
-        opcao = input("Escolha uma opção (1-8): ").strip()
+        opcao = input("Escolha uma opção (1-9): ").strip()
 
         if opcao == "1":
-            fs.listar_arquivos()
+            subpasta = input("Pressione ENTER para raiz ou digite o nome da pasta: ").strip()
+            if subpasta:
+                fs.listar_arquivos(subpasta)
+            else:
+                fs.listar_arquivos()
 
         elif opcao == "2":
-            print("\n--- Escrever Arquivo ---")
+            print("\n--- Escrever Arquivo (na Raiz) ---")
             nome = input("Nome do arquivo (ex: notas.txt): ").strip()
             if not nome:
                 print("Erro: O nome não pode estar vazio.")
                 continue
-
             conteudo = input("Conteúdo do arquivo: ")
-
-            sucesso = fs.escrever_arquivo(nome, conteudo)
-            if not sucesso:
-                print("Falha ao escrever o arquivo.")
+            fs.escrever_arquivo(nome, conteudo)
 
         elif opcao == "3":
             print("\n--- Ler Arquivo ---")
             nome = input("Nome do arquivo a ler: ").strip()
             conteudo = fs.ler_arquivo(nome)
-
             if conteudo is not None:
-                print(f"\n[INÍCIO DO ARQUIVO '{nome}']")
-                print(conteudo)
-                print(f"[FIM DO ARQUIVO '{nome}']")
+                print(f"\n[CONTEÚDO DE '{nome}']: \n{conteudo}")
 
         elif opcao == "4":
             print("\n--- Apagar Arquivo ---")
@@ -60,37 +58,36 @@ def main():
             fs.renomear_arquivo(antigo, novo)
 
         elif opcao == "6":
-            print("\n--- Alterar Permissões (Somente Leitura) ---")
+            print("\n--- Alterar Permissões ---")
             nome = input("Nome do arquivo: ").strip()
             escolha = input("Tornar somente leitura? (s/n): ").strip().lower()
-
             if escolha == 's':
                 fs.definir_atributo_somente_leitura(nome, True)
             elif escolha == 'n':
                 fs.definir_atributo_somente_leitura(nome, False)
-            else:
-                print("Opção inválida. Nenhuma alteração feita.")
 
         elif opcao == "7":
-            print("\n--- Criar Diretório (mkdir) ---")
+            print("\n--- Criar Diretório ---")
             nome = input("Nome do diretório: ").strip()
-            if not nome:
-                print("Erro: O nome do diretório não pode ser vazio.")
-            else:
-                fs.mkdir(nome)
+            if nome: fs.mkdir(nome)
 
         elif opcao == "8":
-            print("\nFechando o sistema...")
+            print("\n--- Mover Arquivo ---")
+            arquivo = input("Nome do arquivo (na raiz): ").strip()
+            pasta = input("Nome da pasta destino: ").strip()
+            if arquivo and pasta:
+                fs.mover_arquivo(arquivo, pasta)
+
+        elif opcao == "9":
+            print("\nFechando sistema...")
             fs.fechar()
             break
-
         else:
-            print("\nOpção inválida! Por favor, escolha um número de 1 a 8.")
+            print("Opção inválida!")
 
 if __name__ == "__main__":
     if os.path.exists("mini_fat_disco.bin"):
-        print("Disco encontrado. Carregando sistema...")
+        print("Disco encontrado. Carregando...")
     else:
-        print("Disco não encontrado. Um novo será criado ao iniciar.")
-
+        print("Novo disco criado.")
     main()
