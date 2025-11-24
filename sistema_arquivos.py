@@ -16,6 +16,9 @@ DIR_TAMANHO_INDICE = 0
 DIR_CLUSTER_INICIAL_INDEX = 1
 DIR_SOMENTE_LEITURA_INDICE = 2
 
+DIR_TIPO_INDICE = 3  
+TIPO_ARQUIVO = False
+TIPO_DIRETORIO = True
 
 class SistemaArquivos:
     def __init__(self):
@@ -86,7 +89,15 @@ class SistemaArquivos:
             print(f"Erro: Arquivo '{nome_arquivo}' não encontrado.")
             return None
 
-        tamanho, atual_cluster, _ = self._diretorio[nome_arquivo]
+        metadados = self._diretorio[nome_arquivo]
+        
+        if len(metadados) > 3 and metadados[DIR_TIPO_INDICE] == TIPO_DIRETORIO:
+            print(f"Erro: '{nome_arquivo}' é um diretório, não um arquivo de texto.")
+            return None
+
+        tamanho = metadados[DIR_TAMANHO_INDICE]
+        atual_cluster = metadados[DIR_CLUSTER_INICIAL_INDEX]
+
         conteudo_bytes_completo = b""
 
         while atual_cluster != FAT_FIM_DE_ARQUIVO and atual_cluster is not None:
@@ -174,6 +185,7 @@ class SistemaArquivos:
                 conteudo_tamanho,
                 iniciar_cluster,
                 somente_leitura,
+                TIPO_ARQUIVO 
             ]
 
             self._salvar_metadados()
@@ -234,8 +246,63 @@ class SistemaArquivos:
         )
         print("-" * 75)
         for nome, entry in self._diretorio.items():
-            attr = "R/O" if entry[DIR_SOMENTE_LEITURA_INDICE] else "EDITÁVEL"
-            print(
-                f"{nome:<20} | {entry[DIR_TAMANHO_INDICE]:<15} | {entry[DIR_CLUSTER_INICIAL_INDEX]:<15} | {attr}"
-            )
+            eh_diretorio = entry[DIR_TIPO_INDICE] if len(entry) > 3 else False
+            
+            tipo_str = "<DIR>" if eh_diretorio else "ARQ"
+            attr_str = "R/O" if entry[DIR_SOMENTE_LEITURA_INDICE] else "RW"
+            
+            tamanho = entry[DIR_TAMANHO_INDICE]
+            cluster = entry[DIR_CLUSTER_INICIAL_INDEX]
+
+            print(f"{nome:<20} | {tamanho:<12} | {cluster:<8} | {tipo_str} {attr_str}")
         print("-" * 75)
+
+    def mkdir(self, nome_pasta):
+        if nome_pasta in self._diretorio:
+            print(f"Erro: '{nome_pasta}' já existe.")
+            return False
+
+        cluster_livre = self._encontrar_cluster_livre()
+        if cluster_livre is None:
+            print("Erro: Disco cheio.")
+            return False
+
+        
+        conteudo_dir = json.dumps({}).encode("utf-8")
+        
+        self._driver.escrever_cluster(cluster_livre, conteudo_dir)
+        self._fat[cluster_livre] = FAT_FIM_DE_ARQUIVO
+
+        self._diretorio[nome_pasta] = [0, cluster_livre, False, TIPO_DIRETORIO]
+        self._salvar_metadados()
+        
+        print(f"Diretório '{nome_pasta}' criado com sucesso.")
+        return True
+    
+    def mover_para_pasta(self, nome_arquivo, nome_pasta_destino):
+        if nome_arquivo not in self._diretorio:
+            print("Arquivo não encontrado.")
+            return False
+            
+        if nome_pasta_destino not in self._diretorio:
+            print("Pasta de destino não encontrada.")
+            return False
+            
+        dados_destino = self._diretorio[nome_pasta_destino]
+        if not dados_destino[3]: 
+            print(f"Erro: '{nome_pasta_destino}' não é uma pasta.")
+            return False
+
+        cluster_dest = dados_destino[1]
+        bytes_dest = self._driver.ler_cluster(cluster_dest)
+        dict_destino = json.loads(bytes_dest.decode('utf-8').strip('\x00'))
+
+        metadados_arquivo = self._diretorio.pop(nome_arquivo)
+        dict_destino[nome_arquivo] = metadados_arquivo      
+
+        
+        self._driver.escrever_cluster(cluster_dest, json.dumps(dict_destino).encode('utf-8'))
+        self._salvar_metadados() 
+
+        print(f"Arquivo '{nome_arquivo}' movido para '{nome_pasta_destino}/'.")
+        return True
